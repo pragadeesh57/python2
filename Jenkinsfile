@@ -6,9 +6,20 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
+                    rm -rf venv
                     python3 -m venv venv
                     ./venv/bin/pip install --upgrade pip
                     ./venv/bin/pip install pytest pyinstaller
+                '''
+            }
+        }
+
+        stage('Check Files') {
+            steps {
+                sh '''
+                    echo "Checking project files..."
+                    ls -la
+                    ls -la sources
                 '''
             }
         }
@@ -18,7 +29,8 @@ pipeline {
                 sh '''
                     ./venv/bin/python -m py_compile \
                     sources/add2vals.py \
-                    sources/calc.py
+                    sources/calc.py \
+                    sources/test_calc.py
                 '''
             }
         }
@@ -27,12 +39,10 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p test-reports
-
                     cd sources
-
                     ../venv/bin/python -m pytest \
                     test_calc.py \
-                    --verbose \
+                    -v \
                     --junit-xml=../test-reports/results.xml
                 '''
             }
@@ -44,20 +54,14 @@ pipeline {
             }
         }
 
-        stage('Run Application') {
-            steps {
-                sh '''
-                    cd sources
-                    ../venv/bin/python add2vals.py
-                '''
-            }
-        }
-
         stage('Deliver') {
             steps {
                 sh '''
-                    ./venv/bin/python -m PyInstaller \
+                    rm -rf build dist *.spec
+
+                    ./venv/bin/pyinstaller \
                     --onefile \
+                    --name add2vals \
                     sources/add2vals.py
                 '''
             }
@@ -74,7 +78,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['r1']) {
                     sh '''
-                        echo "Copying application to AWS EC2..."
+                        echo "Deploying to AWS EC2..."
 
                         scp -o StrictHostKeyChecking=no \
                         dist/add2vals \
