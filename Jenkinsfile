@@ -8,8 +8,8 @@ pipeline {
                 sh '''
                     rm -rf venv
                     python3 -m venv venv
-                    ./venv/bin/pip install --upgrade pip
-                    ./venv/bin/pip install pytest pyinstaller
+                    ./venv/bin/python -m pip install --upgrade pip
+                    ./venv/bin/python -m pip install pytest pyinstaller
                 '''
             }
         }
@@ -39,11 +39,11 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p test-reports
-                    cd sources
-                    ../venv/bin/python -m pytest \
-                    test_calc.py \
+
+                    ./venv/bin/python -m pytest \
+                    sources/test_calc.py \
                     -v \
-                    --junit-xml=../test-reports/results.xml
+                    --junit-xml=test-reports/results.xml
                 '''
             }
 
@@ -59,7 +59,7 @@ pipeline {
                 sh '''
                     rm -rf build dist *.spec
 
-                    ./venv/bin/pyinstaller \
+                    ./venv/bin/python -m PyInstaller \
                     --onefile \
                     --name add2vals \
                     sources/add2vals.py
@@ -76,18 +76,28 @@ pipeline {
 
         stage('Deploy to AWS') {
             steps {
-                sshagent(credentials: ['r1']) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'r1',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+
                     sh '''
+                        set -e
+
                         echo "Deploying to AWS EC2..."
 
+                        chmod 600 "$SSH_KEY"
+
                         scp -o StrictHostKeyChecking=no \
-                        dist/add2vals \
-                        ubuntu@54.253.129.59:/tmp/add2vals
+                            -i "$SSH_KEY" \
+                            dist/add2vals \
+                            "$SSH_USER@54.253.129.59:/tmp/add2vals"
 
                         ssh -o StrictHostKeyChecking=no \
-                        ubuntu@54.253.129.59 \
-                        'sudo mv /tmp/add2vals /usr/local/bin/add2vals && \
-                         sudo chmod +x /usr/local/bin/add2vals'
+                            -i "$SSH_KEY" \
+                            "$SSH_USER@54.253.129.59" \
+                            'sudo mv /tmp/add2vals /usr/local/bin/add2vals && sudo chmod +x /usr/local/bin/add2vals'
 
                         echo "Deployment completed successfully!"
                     '''
