@@ -92,11 +92,11 @@ pipeline {
                         scp -o StrictHostKeyChecking=no \
                             -i "$SSH_KEY" \
                             dist/add2vals \
-                            "$SSH_USER@54.253.129.59:/tmp/add2vals"
+                            "$SSH_USER@13.212.143.193:/tmp/add2vals"
 
                         ssh -o StrictHostKeyChecking=no \
                             -i "$SSH_KEY" \
-                            "$SSH_USER@54.253.129.59" \
+                            "$SSH_USER@13.212.143.193" \
                             'sudo mv /tmp/add2vals /usr/local/bin/add2vals && sudo chmod +x /usr/local/bin/add2vals'
 
                         echo "Deployment completed successfully!"
